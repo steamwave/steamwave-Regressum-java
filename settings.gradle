@@ -1,0 +1,12 @@
+pluginManagement {
+    repositories {
+        flatDir {
+            dirs 'buildSrc/plugins' // Локальная папка с shadow-gradle-plugin-9.0.2.jar
+        }
+        gradlePluginPortal()
+        maven { url = uri("https://repo.gradle.org/gradle/libs-releases/") }
+        maven { url = uri("https://maven.neoforged.net/releases") }
+        maven { url = uri("https://oss.sonatype.org/content/repositories/snapshots/") }
+        mavenCentral()
+    }
+}
