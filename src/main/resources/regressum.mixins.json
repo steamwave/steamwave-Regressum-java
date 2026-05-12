@@ -1,1 +1,15 @@
-{}
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "ru.steamwave.regressum.mixins",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "MixinPacketListener",
+    "MixinItemHandlerWrapper",
+    "MixinSyncedStackHandler",
+    "MixinSmartInventory"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

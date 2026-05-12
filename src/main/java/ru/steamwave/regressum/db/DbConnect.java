@@ -31,16 +31,16 @@ public class DbConnect {
             config.setPassword(password);
 
             // Настройки пула
-            config.setMaximumPoolSize(10);
-            config.setMinimumIdle(2);
-            config.setIdleTimeout(60000);
-            config.setMaxLifetime(1800000);
-            config.setConnectionTimeout(10000);
-            config.setPoolName("RegressumHikariPool");
-            config.addDataSourceProperty("socketTimeout", "10");
-            config.addDataSourceProperty("tcpKeepAlive", "true");
+            ;
 
-            LOGGER.info("[DbConnect] Применение конфигурации...");
+            LOGGER.info("[DbConnecconfig.setMaximumPoolSize(10);\n" +
+                    "            config.setMinimumIdle(2);\n" +
+                    "            config.setIdleTimeout(60000);\n" +
+                    "            config.setMaxLifetime(1800000);\n" +
+                    "            config.setConnectionTimeout(10000);\n" +
+                    "            config.setPoolName(\"RegressumHikariPool\");\n" +
+                    "            config.addDataSourceProperty(\"socketTimeout\", \"10\");\n" +
+                    "            config.addDataSourceProperty(\"tcpKeepAlive\", \"true\")t] Применение конфигурации...");
             dataSource = new HikariDataSource(config);
 
             LOGGER.info("[DbConnect] Проверка тестового подключения...");

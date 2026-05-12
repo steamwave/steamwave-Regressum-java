@@ -47,6 +47,7 @@ public class Regressum {
         NeoForge.EVENT_BUS.register(new ItemEvents());
         NeoForge.EVENT_BUS.register(new InspectorEvents());
 
+
         // Регистрация обработчика событий Block
 
         // Инициализация базы данных и writer
