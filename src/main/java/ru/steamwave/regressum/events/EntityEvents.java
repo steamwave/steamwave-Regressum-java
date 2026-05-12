@@ -11,6 +11,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import ru.steamwave.regressum.db.DbManager;
 import ru.steamwave.regressum.model.EntityLogAction;
 import ru.steamwave.regressum.storage.ActionQueue;
 import ru.steamwave.regressum.storage.CacheManager;
@@ -18,6 +19,11 @@ import ru.steamwave.regressum.storage.CacheManager;
 import java.util.UUID;
 
 public class EntityEvents {
+    private final DbManager dbManager;
+
+    public EntityEvents(DbManager dbManager) {
+        this.dbManager = dbManager;
+    }
     // private static final Logger LOGGER = LogManager.getLogger("Regressum");
 
     @SubscribeEvent

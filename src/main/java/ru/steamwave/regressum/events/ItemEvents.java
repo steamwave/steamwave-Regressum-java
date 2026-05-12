@@ -11,12 +11,19 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.item.ItemExpireEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerDestroyItemEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import ru.steamwave.regressum.db.DbManager;
 import ru.steamwave.regressum.model.ItemLogAction;
 import ru.steamwave.regressum.storage.ActionQueue;
 import ru.steamwave.regressum.storage.CacheManager;
 import ru.steamwave.regressum.utils.InspectorUtil;
 
 public class ItemEvents {
+
+    private final DbManager dbManager;
+
+    public ItemEvents(DbManager dbManager) {
+        this.dbManager = dbManager;
+    }
 
     /**
      * Игрок подобрал предмет с земли

@@ -1,93 +1,109 @@
 package ru.steamwave.regressum;
 
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.block.Blocks;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
-import net.neoforged.bus.api.IEventBus; // Правильный импорт для NeoForge 1.21.1
-
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.spongepowered.asm.mixin.Mixins;
 import ru.steamwave.regressum.commands.*;
-
-import ru.steamwave.regressum.events.*;
-import ru.steamwave.regressum.storage.CacheManager;
-import ru.steamwave.regressum.storage.AsyncDbWriter;
+import ru.steamwave.regressum.config.RegressumConfig;
 import ru.steamwave.regressum.db.DbManager;
-
-
+import ru.steamwave.regressum.events.*;
+import ru.steamwave.regressum.storage.AsyncDbWriter;
+import ru.steamwave.regressum.storage.CacheManager;
 
 @Mod(Regressum.MOD_ID)
 public class Regressum {
     public static final String MOD_ID = "regressum";
-
-    private final DbManager dbManager;
-    private final AsyncDbWriter dbWriter;
     public static final Logger LOGGER = LogManager.getLogger();
 
-    public Regressum(IEventBus modEventBus) {
+    private DbManager dbManager;
+    private AsyncDbWriter dbWriter;
 
+    public Regressum(IEventBus modEventBus, ModContainer modContainer) {
+        // 1. Регистрация конфига (обязательно первой)
+        modContainer.registerConfig(ModConfig.Type.COMMON, RegressumConfig.SPEC);
 
+        // 2. Жизненный цикл мода
+        modEventBus.addListener(this::setup);
+        modEventBus.addListener(this::commonSetup);
 
-        // Регистрация событий мода
-        modEventBus.addListener(this::setup); // Регистрация клиентской настройки
-        NeoForge.EVENT_BUS.addListener(this::onServerStarting); // Регистрация команд на старте сервера
-        NeoForge.EVENT_BUS.addListener(this::onServerStarted); // Регистрация события старта сервера
-        NeoForge.EVENT_BUS.register(new BlockEvents());
-        NeoForge.EVENT_BUS.register(new ContainerCleanupEvents());
-        NeoForge.EVENT_BUS.register(new EntityEvents());
-        NeoForge.EVENT_BUS.register(new ItemEvents());
-        NeoForge.EVENT_BUS.register(new InspectorEvents());
-
-
-        // Регистрация обработчика событий Block
-
-        // Инициализация базы данных и writer
-        dbManager = new DbManager();
-        dbWriter = new AsyncDbWriter(dbManager);
-        dbWriter.start();
-
-        // Инициализация кеша (макс. 50 записей на позицию, 100 на игрока, TTL 10 мин, очистка каждые 1 мин)
-        CacheManager.init(50, 100, 10 * 60 * 1000, 60 * 1000);
+        // 3. Системные события сервера
+        NeoForge.EVENT_BUS.addListener(this::onServerStarting);
+        NeoForge.EVENT_BUS.addListener(this::onServerStarted);
+        NeoForge.EVENT_BUS.addListener(this::onServerStopping);
     }
 
-    // Клиентская настройка
+    private void commonSetup(FMLCommonSetupEvent event) {
+        // enqueueWork гарантирует поток безопасности при обращении к ресурсам игры
+        event.enqueueWork(() -> {
+            try {
+                LOGGER.info("Initializing Regressum Database and Cache...");
+
+                // Инициализация менеджера и попытка подключения
+                // Если в DbConnect.init() стоит halt(1), сервер упадет тут при ошибке БД
+                dbManager = new DbManager();
+                dbManager.getDbConnect().init();
+
+                // Запуск асинхронного писателя (теперь conn точно не null)
+                dbWriter = new AsyncDbWriter(dbManager);
+                dbWriter.start();
+
+                // Инициализация кеша
+                CacheManager.init(50, 100, 10 * 60 * 1000, 60 * 1000);
+
+                // 4. РЕГИСТРАЦИЯ СОБЫТИЙ (теперь это безопасно)
+                // Если твои эвенты требуют dbManager в конструкторе — передавай его здесь
+                NeoForge.EVENT_BUS.register(new BlockEvents(dbManager));
+                NeoForge.EVENT_BUS.register(new ContainerCleanupEvents(dbManager));
+                NeoForge.EVENT_BUS.register(new EntityEvents(dbManager));
+                NeoForge.EVENT_BUS.register(new ItemEvents(dbManager));
+                NeoForge.EVENT_BUS.register(new InspectorEvents());
+
+                LOGGER.info("Regressum logic initialized successfully!");
+            } catch (Exception e) {
+                LOGGER.fatal("Failed to initialize Regressum! Shutting down server...", e);
+                Runtime.getRuntime().halt(1); // Жесткий стоп, если БД не завелась
+            }
+        });
+    }
+
     private void setup(FMLClientSetupEvent event) {
-        System.out.println("Client setup done");
+        LOGGER.info("Client setup done");
     }
 
-    // Регистрация команд при старте сервера
     private void onServerStarting(ServerStartingEvent event) {
-        InspectCommand.register(event.getServer().getCommands().getDispatcher());
-        DbCommands.register(event.getServer().getCommands().getDispatcher(), dbManager);
-        SetupCommand.register(event.getServer().getCommands().getDispatcher(), dbManager);
-        ClearDbCommand.register(event.getServer().getCommands().getDispatcher(), dbManager);
-        InspectPageCommand.register(event.getServer().getCommands().getDispatcher());
+        var dispatcher = event.getServer().getCommands().getDispatcher();
+
+        InspectCommand.register(dispatcher);
+        DbCommands.register(dispatcher, dbManager);
+        SetupCommand.register(dispatcher, dbManager);
+        ClearDbCommand.register(dispatcher, dbManager);
+        InspectPageCommand.register(dispatcher);
+
         LOGGER.info("All commands registered!");
     }
 
-    // Событие старта сервера
     private void onServerStarted(ServerStartedEvent event) {
         LOGGER.info("Server started!");
     }
+
     private void onServerStopping(ServerStoppingEvent event) {
-        dbManager.close();
-        LOGGER.info("Server stopped!");
+        stop();
     }
 
-    // Остановка мода
     public void stop() {
+        LOGGER.info("Stopping Regressum...");
         if (dbWriter != null) dbWriter.shutdown();
+        if (dbManager != null) dbManager.close();
         if (CacheManager.getInstance() != null) CacheManager.getInstance().shutdown();
         LOGGER.info("Regressum stopped!");
     }
-
 }

@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import ru.steamwave.regressum.config.RegressumConfig;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -13,85 +14,101 @@ public class DbConnect {
     private static final Logger LOGGER = LogManager.getLogger("RegressumDB");
     private HikariDataSource dataSource;
 
-    // Настройки PostgreSQL
-    private final String url = "jdbc:postgresql://localhost:5432/regressum?ssl=false";
-    private final String user = "regressum_user";
-    private final String password = "G380993012158Mazda2911972904199915092009";
-
     public DbConnect() {
-        LOGGER.info("[DbConnect] Инициализация подключения к PostgreSQL...");
-        LOGGER.info("[DbConnect] URL: {}", url);
-        LOGGER.info("[DbConnect] Пользователь: {}", user);
+        // Пусто, чтобы не спровоцировать IllegalStateException при загрузке мода
+    }
+
+    /**
+     * Проверяет, заполнены ли обязательные поля в конфиге.
+     */
+    private boolean validateConfig() {
+        try {
+            String host = RegressumConfig.DB_HOST.get();
+            String user = RegressumConfig.DB_USER.get();
+            String dbName = RegressumConfig.DB_NAME.get();
+
+            // Проверяем на пустоту или дефолтные значения (подставь свои, если они другие)
+            if (host == null || host.isEmpty() || host.equals("your_default_host")) return false;
+            if (user == null || user.isEmpty() || user.equals("your_default_user")) return false;
+            if (dbName == null || dbName.isEmpty()) return false;
+
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void init() {
+        if (dataSource != null) return;
+
+        // 1. Валидация конфига
+        if (!validateConfig()) {
+            LOGGER.fatal("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            LOGGER.fatal("[DbConnect] ❌ ОШИБКА: Конфиг БД не заполнен!");
+            LOGGER.fatal("[DbConnect] Проверьте файл config/regressum-common.toml");
+            LOGGER.fatal("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+
+            // Выключаем сервер мгновенно
+            Runtime.getRuntime().halt(1);
+        }
 
         try {
-            LOGGER.info("[DbConnect] Настройка конфигурации HikariCP...");
+            String host = RegressumConfig.DB_HOST.get();
+            int port = RegressumConfig.DB_PORT.get();
+            String dbName = RegressumConfig.DB_NAME.get();
+            String user = RegressumConfig.DB_USER.get();
+            String password = RegressumConfig.DB_PASS.get();
+
+            String url = String.format("jdbc:postgresql://%s:%d/%s?ssl=false", host, port, dbName);
+
+            LOGGER.info("[DbConnect] Попытка подключения к PostgreSQL: {}", url);
+
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl(url);
             config.setUsername(user);
             config.setPassword(password);
 
-            // Настройки пула
-            ;
+            // Настройки пула (HikariCP)
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(2);
+            config.setIdleTimeout(60000);
+            config.setConnectionTimeout(10000); // 10 секунд на попытку
+            config.setPoolName("RegressumPool");
 
-            LOGGER.info("[DbConnecconfig.setMaximumPoolSize(10);\n" +
-                    "            config.setMinimumIdle(2);\n" +
-                    "            config.setIdleTimeout(60000);\n" +
-                    "            config.setMaxLifetime(1800000);\n" +
-                    "            config.setConnectionTimeout(10000);\n" +
-                    "            config.setPoolName(\"RegressumHikariPool\");\n" +
-                    "            config.addDataSourceProperty(\"socketTimeout\", \"10\");\n" +
-                    "            config.addDataSourceProperty(\"tcpKeepAlive\", \"true\")t] Применение конфигурации...");
             dataSource = new HikariDataSource(config);
 
-            LOGGER.info("[DbConnect] Проверка тестового подключения...");
+            // Тестовое соединение
             try (Connection conn = dataSource.getConnection()) {
                 if (conn != null && !conn.isClosed()) {
-                    LOGGER.info("[DbConnect] ✅ Подключение к PostgreSQL успешно установлено!");
-                } else {
-                    LOGGER.error("[DbConnect] ⚠️ Подключение получено, но оно закрыто!");
+                    LOGGER.info("[DbConnect] ✅ База данных подключена успешно!");
                 }
             }
 
-        } catch (SQLException e) {
-            LOGGER.error("[DbConnect] ❌ SQL ошибка при подключении!", e);
-            throw new RuntimeException("Ошибка при тестовом подключении к базе данных", e);
         } catch (Exception e) {
-            LOGGER.error("[DbConnect] ❌ Ошибка при создании HikariCP пула!", e);
-            throw new RuntimeException("Ошибка при создании HikariCP пула", e);
+            LOGGER.fatal("[DbConnect] ❌ КРИТИЧЕСКАЯ ОШИБКА при создании пула БД!");
+            LOGGER.fatal(e.getMessage());
+            // Если пароль неверный или БД выключена — тоже стопаем сервер
+            Runtime.getRuntime().halt(1);
         }
     }
 
-    /**
-     * Возвращает соединение из пула.
-     */
     public Connection getConnection() {
+        // Если кто-то вызвал до инициализации
+        if (dataSource == null) {
+            return null;
+        }
         try {
-            LOGGER.debug("[DbConnect] Запрос соединения из пула...");
-            Connection conn = dataSource.getConnection();
-
-            if (conn != null && !conn.isClosed()) {
-                LOGGER.debug("[DbConnect] ✅ Соединение успешно получено из пула!");
-            } else {
-                LOGGER.warn("[DbConnect] ⚠️ Соединение из пула оказалось закрытым!");
-            }
-
-            return conn;
+            return dataSource.getConnection();
         } catch (SQLException e) {
-            LOGGER.error("[DbConnect] ❌ Не удалось получить соединение из пула!", e);
+            LOGGER.error("[DbConnect] ❌ Ошибка получения соединения из пула: {}", e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Закрывает пул соединений.
-     */
     public void close() {
         if (dataSource != null && !dataSource.isClosed()) {
-            LOGGER.info("[DbConnect] Закрытие HikariCP пула...");
             dataSource.close();
-            LOGGER.info("[DbConnect] ✅ Пул успешно закрыт.");
-        } else {
-            LOGGER.warn("[DbConnect] ⚠️ Пул уже был закрыт или не инициализирован.");
+            LOGGER.info("[DbConnect] Пул БД закрыт.");
         }
     }
 }

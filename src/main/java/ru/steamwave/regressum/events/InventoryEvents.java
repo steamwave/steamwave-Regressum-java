@@ -1,71 +1,60 @@
 package ru.steamwave.regressum.events;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
-public class InventoryEvents implements IItemHandler {
-    private static final Logger LOGGER = LogManager.getLogger("Regressum-Log");
-    private final IItemHandler delegate;
-    private final BlockPos pos;
+public class InventoryEvents {
+    // Карта: Координаты блока -> UUID последнего игрока, кто кликнул
+    private static final Map<BlockPos, UUID> lastInteraction = new HashMap<>();
 
-    public InventoryEvents(IItemHandler delegate, BlockPos pos) {
-        this.delegate = delegate;
-        this.pos = pos;
+    // Запоминаем игрока при клике
+    public static void recordInteraction(BlockPos pos, UUID player) {
+        lastInteraction.put(pos, player);
     }
 
-    @Override
-    public int getSlots() { return delegate.getSlots(); }
-    @Override
-    public @NotNull ItemStack getStackInSlot(int slot) { return delegate.getStackInSlot(slot); }
+    public static void logInsert(BlockPos pos, int slot, ItemStack stack) {
+        UUID playerUUID = lastInteraction.get(pos);
+        if (playerUUID == null) return;
 
-    @Override
-    public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-        ItemStack result = delegate.insertItem(slot, stack, simulate);
-        if (!simulate) {
-            int diff = stack.getCount() - result.getCount();
-            if (diff > 0) log("ПОЛОЖИЛИ", stack, diff);
-        }
-        return result;
-    }
+        ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(playerUUID);
+        if (player != null) {
+            // Достаем ник игрока
+            String playerName = player.getScoreboardName();
+            String itemName = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+            int count = stack.getCount();
 
-    @Override
-    public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-        ItemStack result = delegate.extractItem(slot, amount, simulate);
-        if (!simulate && !result.isEmpty()) {
-            log("ЗАБРАЛИ", result, result.getCount());
-        }
-        return result;
-    }
-
-    private void log(String action, ItemStack stack, int count) {
-        String actor = findActor().map(ServerPlayer::getScoreboardName).orElse("Система/Труба");
-        String msg = String.format("%s: %dx %s в [%d, %d, %d] (%s)",
-                action, count, stack.getHoverName().getString(), pos.getX(), pos.getY(), pos.getZ(), actor);
-
-        LOGGER.info(msg);
-        if (ServerLifecycleHooks.getCurrentServer() != null) {
-            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(
-                    Component.literal("§e[Regressum] §f" + msg), false);
+            // Добавляем %s в начало строки для имени
+            player.sendSystemMessage(Component.literal(
+                    String.format("§6%s §a[+]§f Положил §e%dx %s§f в слот §7%d§f (@ %d, %d, %d)",
+                            playerName, count, itemName, slot, pos.getX(), pos.getY(), pos.getZ())
+            ));
         }
     }
 
-    private Optional<ServerPlayer> findActor() {
-        if (ServerLifecycleHooks.getCurrentServer() == null) return Optional.empty();
-        // Ищем игрока в радиусе 8 блоков, у которого открыт любой контейнер
-        return ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayers().stream()
-                .filter(p -> p.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) < 64)
-                .findFirst();
-    }
+    public static void logExtract(BlockPos pos, int slot, ItemStack stack) {
+        UUID playerUUID = lastInteraction.get(pos);
+        if (playerUUID == null) return;
 
-    @Override public int getSlotLimit(int slot) { return delegate.getSlotLimit(slot); }
-    @Override public boolean isItemValid(int slot, @NotNull ItemStack stack) { return delegate.isItemValid(slot, stack); }
+        ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(playerUUID);
+        if (player != null) {
+            // Достаем ник игрока
+            String playerName = player.getScoreboardName();
+            String itemName = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+            int count = stack.getCount();
+
+            // Добавляем %s в начало строки для имени
+            player.sendSystemMessage(Component.literal(
+                    String.format("§6%s §c[-]§f Забрал §e%dx %s§f из слота §7%d§f (@ %d, %d, %d)",
+                            playerName, count, itemName, slot, pos.getX(), pos.getY(), pos.getZ())
+            ));
+        }
+    }
 }

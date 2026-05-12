@@ -4,10 +4,27 @@ import java.sql.Connection;
 
 public class DbManager {
 
-    private final DbConnect db;
+    public final DbConnect db;
 
     public DbManager() {
-        db = new DbConnect();
+        // Создаем объект подключения, но пока не открываем его
+        this.db = new DbConnect();
+    }
+
+    /**
+     * Инициализирует подключение к базе данных.
+     * Вызывает DbConnect.init(), который проверяет параметры и создает пул.
+     */
+    public void init() {
+        db.init();
+    }
+
+    /**
+     * Позволяет получить прямой доступ к объекту DbConnect,
+     * если это необходимо в Regressum.java.
+     */
+    public DbConnect getDbConnect() {
+        return db;
     }
 
     public Connection getConnection() {

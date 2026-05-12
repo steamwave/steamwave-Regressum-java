@@ -10,6 +10,7 @@ import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import ru.steamwave.regressum.db.DbManager;
 import ru.steamwave.regressum.model.BlockLogAction;
 import ru.steamwave.regressum.storage.ActionQueue;
 import ru.steamwave.regressum.storage.CacheManager;
@@ -18,6 +19,11 @@ import java.util.UUID;
 
 public class BlockEvents {
     private static final Logger LOGGER = LogManager.getLogger("Regressum");
+    private final DbManager dbManager;
+
+    public BlockEvents(DbManager dbManager) {
+        this.dbManager = dbManager;
+    }
 
     @SubscribeEvent
     public void onBlockBreak(BlockEvent.BreakEvent event) {

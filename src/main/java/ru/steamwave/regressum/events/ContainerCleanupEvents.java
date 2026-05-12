@@ -2,7 +2,6 @@ package ru.steamwave.regressum.events;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -19,7 +18,7 @@ public class ContainerCleanupEvents {
 
     private final DbManager dbManager;
 
-    public ContainerCleanupEvents() {
+    public ContainerCleanupEvents(DbManager dbManager) {
         this.dbManager = new DbManager(); // 🔴 Инициализируем DbManager
     }
 

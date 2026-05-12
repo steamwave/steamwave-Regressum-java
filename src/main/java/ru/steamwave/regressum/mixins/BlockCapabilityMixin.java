@@ -1,37 +1,46 @@
 package ru.steamwave.regressum.mixins;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.capabilities.BlockCapability;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.wrapper.WrappedItemHandler;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import ru.steamwave.regressum.events.InventoryEvents;
+import ru.steamwave.regressum.wrapper.LoggingItemHandler;
 
-@Mixin(targets = "net.neoforged.neoforge.capabilities.BlockCapability$IBlockCapabilityProvider")
-public abstract class BlockCapabilityMixin {
+@Mixin(BlockCapability.class)
+public class BlockCapabilityMixin {
 
-    @Inject(method = "getCapability", at = @At("RETURN"), cancellable = true, remap = false)
-    private void onGetCapability(Object container, Object context, CallbackInfoReturnable<Object> cir) {
-        Object result = cir.getReturnValue();
+    @Inject(
+            method = "getCapability",
+            at = @At("RETURN"),
+            cancellable = true,
+            remap = false // Это важно, так как это код NeoForge
+    )
+    private void wrapInventory(
+            Level level,
+            BlockPos pos,
+            @Nullable BlockState state,
+            @Nullable BlockEntity blockEntity,
+            Object context, // Context в исходнике - это C, в миксине пишем Object
+            CallbackInfoReturnable<Object> cir
+    ) {
+        // Проверяем: это запрос инвентаря?
+        if ((Object)this == Capabilities.ItemHandler.BLOCK) {
+            Object result = cir.getReturnValue();
 
-        if (result instanceof IItemHandler handler && !(handler instanceof InventoryEvents)) {
-            BlockPos pos = null;
-            if (container instanceof BlockEntity be) {
-                pos = be.getBlockPos();
-            } else if (context instanceof BlockPos p) {
-                pos = p;
-            }
+            // Если инвентарь нашелся и мы его еще не оборачивали
+            if (result instanceof IItemHandler handler && !(handler instanceof LoggingItemHandler)) {
 
-            if (pos != null) {
-                IItemHandler actual = handler;
-                // Разворачиваем вложенные обертки (SidedInvWrapper и т.д.)
-                while (actual instanceof WrappedItemHandler wrapped) {
-                    actual = wrapped.getHandler();
-                }
-                cir.setReturnValue(new InventoryEvents(actual, pos));
+                // Подменяем результат на нашу обертку
+                // Мы передаем pos, чтобы логгер знал, где стоит сундук
+                cir.setReturnValue(new LoggingItemHandler(handler, pos));
             }
         }
     }
