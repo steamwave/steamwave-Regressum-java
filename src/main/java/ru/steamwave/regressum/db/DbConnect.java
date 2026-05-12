@@ -16,7 +16,7 @@ public class DbConnect {
     // Настройки PostgreSQL
     private final String url = "jdbc:postgresql://localhost:5432/regressum?ssl=false";
     private final String user = "regressum_user";
-    private final String password = "G380993012158Mazda2911972904199915092009";
+    private final String password = "";
 
     public DbConnect() {
         LOGGER.info("[DbConnect] Инициализация подключения к PostgreSQL...");
