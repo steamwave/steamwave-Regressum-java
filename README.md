@@ -1,25 +1,22 @@
+# Regressum
 
-Installation information
-=======
+> [!WARNING]
+> **ALPHA DEVELOPMENT**: Проект находится на стадии активной разработки.
+> **НЕ РЕКОМЕНДУЕТСЯ** для использования на живых серверах (Production). Код содержит много экспериментальных решений и ИИ-генерации ("нейрокода"). Используйте на свой страх и риск.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+## О проекте
+Продвинутая система логирования для **NeoForge 1.21.1**. Отслеживает действия игроков, изменения блоков и инвентарей (включая поддержку сложных модов, таких как **Create**) с асинхронной записью в **PostgreSQL**.
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+## Основные возможности
+*   **Логирование контейнеров:** INSERT/EXTRACT предметов даже в блоках без GUI (например, Create Depot).
+*   **Асинхронность:** Минимальное влияние на TPS сервера благодаря отдельному потоку для БД.
+*   **Конфигурация:** Настройка базы данных через стандартный файл `config/regressum-common.toml`.
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
-
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
-
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+## Установка
+1. Склонируйте репозиторий.
+2. Откройте проект в IDE (рекомендуется IntelliJ IDEA).
+3. При проблемах с библиотеками выполните:
+   ```bash
+   gradlew --refresh-dependencies
+   gradlew clean
+### Это тоже написала нейросеть, могла наврать
